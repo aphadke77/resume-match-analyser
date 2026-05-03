@@ -1,0 +1,1012 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Resume Match Analyser</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Mono:wght@400;500&family=Outfit:wght@300;400;500;600&display=swap');
+
+  :root {
+    --bg: #f5f4f0;
+    --surface: #ffffff;
+    --surface2: #f0eeea;
+    --border: #e2dfd8;
+    --border2: #ccc9c0;
+    --accent: #3b5bdb;
+    --accent2: #7048e8;
+    --green: #0f9b68;
+    --amber: #c47f00;
+    --red: #d63e3e;
+    --text: #1a1a1a;
+    --muted: #6b6860;
+    --muted2: #a09d96;
+    --font-display: 'DM Serif Display', Georgia, serif;
+    --font-body: 'Outfit', sans-serif;
+    --font-mono: 'DM Mono', monospace;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--font-body);
+    font-size: 15px;
+    line-height: 1.6;
+    min-height: 100vh;
+  }
+
+  /* Noise texture overlay */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.03'/%3E%3C/svg%3E");
+    pointer-events: none;
+    z-index: 0;
+    opacity: 0.4;
+  }
+
+  .wrap { max-width: 1100px; margin: 0 auto; padding: 0 24px; position: relative; z-index: 1; }
+
+  /* Header */
+  header {
+    padding: 36px 0 28px;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 36px;
+  }
+  .header-inner { display: flex; align-items: flex-end; justify-content: space-between; gap: 24px; flex-wrap: wrap; }
+  .logo { display: flex; align-items: center; gap: 14px; }
+  .logo-mark {
+    width: 40px; height: 40px;
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    border-radius: 10px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 20px; font-weight: 600; color: #fff;
+    font-family: var(--font-mono);
+    flex-shrink: 0;
+  }
+  .logo-text h1 { font-family: var(--font-display); font-size: 22px; font-weight: 400; color: var(--text); letter-spacing: -0.3px; }
+  .logo-text p { font-size: 12px; color: var(--muted); font-weight: 300; margin-top: 1px; }
+
+  .config-row { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
+  .config-group { display: flex; align-items: center; gap: 8px; }
+  .config-group label { font-size: 12px; color: var(--muted); white-space: nowrap; }
+  .model-select {
+    background: var(--surface);
+    border: 1px solid var(--border2);
+    border-radius: 8px;
+    padding: 8px 10px;
+    color: var(--text);
+    font-family: var(--font-mono);
+    font-size: 12px;
+    outline: none;
+    cursor: pointer;
+    transition: border-color 0.2s;
+    appearance: none;
+    -webkit-appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%236b6860'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 10px center;
+    padding-right: 28px;
+  }
+  .model-select:focus { border-color: var(--accent); }
+  .get-key-link {
+    font-size: 11px; color: var(--accent); text-decoration: none;
+    white-space: nowrap; font-weight: 500;
+    transition: opacity 0.2s;
+  }
+  .get-key-link:hover { opacity: 0.7; }
+  .api-input {
+    background: var(--surface);
+    border: 1px solid var(--border2);
+    border-radius: 8px;
+    padding: 8px 12px;
+    color: var(--text);
+    font-family: var(--font-mono);
+    font-size: 12px;
+    width: 260px;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+  .api-input:focus { border-color: var(--accent); }
+  .api-input::placeholder { color: var(--muted2); }
+
+  /* Input panels */
+  .panels { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 24px; }
+  @media (max-width: 700px) { .panels { grid-template-columns: 1fr; } }
+
+  .panel {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    overflow: hidden;
+    transition: border-color 0.2s;
+  }
+  .panel:focus-within { border-color: var(--border2); }
+  .panel-header {
+    padding: 14px 18px 12px;
+    border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  .panel-title { font-size: 11px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
+  .panel-badge {
+    font-size: 10px; font-family: var(--font-mono);
+    background: var(--surface2); border: 1px solid var(--border);
+    border-radius: 5px; padding: 2px 7px; color: var(--muted2);
+  }
+  textarea {
+    width: 100%; height: 240px;
+    background: transparent;
+    border: none; outline: none;
+    color: var(--text); font-family: var(--font-body); font-size: 13.5px;
+    line-height: 1.65; resize: vertical;
+    padding: 16px 18px;
+  }
+  textarea::placeholder { color: var(--muted2); }
+
+  /* Actions */
+  .actions { display: flex; align-items: center; gap: 14px; margin-bottom: 36px; flex-wrap: wrap; }
+  .btn-analyse {
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    color: #fff;
+    border: none; border-radius: 10px;
+    padding: 13px 32px;
+    font-family: var(--font-body); font-size: 14px; font-weight: 600;
+    cursor: pointer;
+    transition: opacity 0.2s, transform 0.1s;
+    letter-spacing: 0.01em;
+  }
+  .btn-analyse:hover { opacity: 0.88; }
+  .btn-analyse:active { transform: scale(0.98); }
+  .btn-analyse:disabled { opacity: 0.4; cursor: not-allowed; }
+  .btn-clear {
+    background: transparent; border: 1px solid var(--border2);
+    color: var(--muted); border-radius: 10px;
+    padding: 12px 22px; font-family: var(--font-body); font-size: 13px;
+    cursor: pointer; transition: border-color 0.2s, color 0.2s;
+  }
+  .btn-clear:hover { border-color: var(--border2); color: var(--text); }
+  .btn-download {
+    background: var(--surface); border: 1px solid var(--accent);
+    color: var(--accent); border-radius: 10px;
+    padding: 12px 22px; font-family: var(--font-body); font-size: 13px; font-weight: 500;
+    cursor: pointer; transition: background 0.2s, color 0.2s;
+  }
+  .btn-download:hover { background: var(--accent); color: #fff; }
+  .status-msg { font-size: 13px; color: var(--muted); font-family: var(--font-mono); }
+
+  /* Results */
+  #results { display: none; }
+  #results.visible { display: block; animation: fadeUp 0.4s ease both; }
+  @keyframes fadeUp { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: translateY(0); } }
+
+  /* Score banner */
+  .score-banner {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 28px 32px;
+    display: flex; align-items: center; gap: 36px;
+    margin-bottom: 24px;
+    flex-wrap: wrap;
+  }
+  .score-ring {
+    flex-shrink: 0;
+    width: 90px; height: 90px;
+    position: relative;
+  }
+  .score-ring svg { width: 90px; height: 90px; transform: rotate(-90deg); }
+  .score-ring .ring-bg { fill: none; stroke: var(--border2); stroke-width: 6; }
+  .score-ring .ring-fill { fill: none; stroke-width: 6; stroke-linecap: round; transition: stroke-dashoffset 1s cubic-bezier(0.4,0,0.2,1); }
+  .score-label {
+    position: absolute; inset: 0;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+  }
+  .score-num { font-family: var(--font-display); font-size: 26px; color: var(--text); line-height: 1; }
+  .score-pct { font-size: 11px; color: var(--muted); }
+  .score-meta { flex: 1; }
+  .score-meta h2 { font-family: var(--font-display); font-size: 24px; font-weight: 400; margin-bottom: 6px; }
+  .score-meta p { font-size: 13.5px; color: var(--muted); line-height: 1.6; }
+
+  /* Fit pills */
+  .fit-pills { display: flex; gap: 10px; margin-top: 14px; flex-wrap: wrap; }
+  .pill {
+    font-size: 11px; font-weight: 600; letter-spacing: 0.05em; text-transform: uppercase;
+    border-radius: 20px; padding: 4px 12px; border: 1px solid;
+  }
+  .pill-green { color: var(--green); border-color: rgba(15,155,104,0.3); background: rgba(15,155,104,0.08); }
+  .pill-amber { color: var(--amber); border-color: rgba(196,127,0,0.3); background: rgba(196,127,0,0.08); }
+  .pill-red   { color: var(--red);   border-color: rgba(214,62,62,0.3); background: rgba(214,62,62,0.08); }
+
+  /* Cards grid */
+  .cards { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 24px; }
+  @media (max-width: 700px) { .cards { grid-template-columns: 1fr; } }
+
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    overflow: hidden;
+  }
+  .card-head {
+    padding: 16px 20px 14px;
+    border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; gap: 10px;
+  }
+  .card-icon { width: 28px; height: 28px; border-radius: 7px; display: flex; align-items: center; justify-content: center; font-size: 14px; flex-shrink: 0; }
+  .icon-green { background: rgba(15,155,104,0.10); }
+  .icon-red   { background: rgba(214,62,62,0.10); }
+  .card-head h3 { font-size: 13px; font-weight: 600; }
+  .card-body { padding: 18px 20px; }
+
+  /* Match items */
+  .match-item { display: flex; gap: 12px; margin-bottom: 14px; }
+  .match-item:last-child { margin-bottom: 0; }
+  .match-dot { width: 8px; height: 8px; border-radius: 50%; margin-top: 7px; flex-shrink: 0; }
+  .dot-green { background: var(--green); }
+  .dot-red   { background: var(--red); }
+  .dot-amber { background: var(--amber); }
+  .match-text { font-size: 13px; line-height: 1.6; }
+  .match-label { font-weight: 600; font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; display: block; margin-bottom: 2px; }
+
+  /* Improvements section */
+  .improvements {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    overflow: hidden;
+    margin-bottom: 24px;
+  }
+  .improvements-head {
+    padding: 18px 24px 16px;
+    border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; gap: 12px;
+  }
+  .improvements-head h3 { font-family: var(--font-display); font-size: 18px; font-weight: 400; }
+  .improvements-body { padding: 24px; }
+
+  .improvement-row {
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    margin-bottom: 14px;
+    overflow: hidden;
+    transition: border-color 0.2s;
+  }
+  .improvement-row:last-child { margin-bottom: 0; }
+  .improvement-row:hover { border-color: var(--border2); }
+  .improvement-toggle {
+    width: 100%; background: none; border: none; cursor: pointer;
+    padding: 14px 18px; display: flex; align-items: center; gap: 12px;
+    text-align: left; color: var(--text);
+  }
+  .imp-num {
+    width: 24px; height: 24px; border-radius: 6px;
+    background: var(--surface2); border: 1px solid var(--border2);
+    font-family: var(--font-mono); font-size: 11px; font-weight: 500; color: var(--muted);
+    display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+  }
+  .imp-title { font-size: 14px; font-weight: 500; flex: 1; }
+  .imp-priority {
+    font-size: 10px; font-weight: 600; letter-spacing: 0.07em; text-transform: uppercase;
+    padding: 3px 9px; border-radius: 12px; border: 1px solid;
+  }
+  .pri-high { color: var(--red); border-color: rgba(214,62,62,0.3); background: rgba(214,62,62,0.07); }
+  .pri-med  { color: var(--amber); border-color: rgba(196,127,0,0.3); background: rgba(196,127,0,0.07); }
+  .pri-low  { color: var(--green); border-color: rgba(15,155,104,0.3); background: rgba(15,155,104,0.07); }
+  .imp-chevron { color: var(--muted2); font-size: 12px; transition: transform 0.2s; flex-shrink: 0; }
+  .improvement-row.open .imp-chevron { transform: rotate(180deg); }
+  .improvement-detail {
+    display: none; padding: 0 18px 16px 54px;
+    font-size: 13px; line-height: 1.7; color: var(--muted);
+    border-top: 1px solid var(--border);
+    padding-top: 14px;
+  }
+  .improvement-row.open .improvement-detail { display: block; }
+
+  /* Keywords */
+  .keywords-section {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 24px;
+    margin-bottom: 40px;
+  }
+  .keywords-section h3 { font-family: var(--font-display); font-size: 18px; font-weight: 400; margin-bottom: 6px; }
+  .keywords-section p { font-size: 13px; color: var(--muted); margin-bottom: 18px; }
+  .kw-groups { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 20px; }
+  .kw-group h4 { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.07em; color: var(--muted); margin-bottom: 10px; }
+  .kw-tags { display: flex; flex-wrap: wrap; gap: 7px; }
+  .kw-tag {
+    font-size: 12px; border-radius: 6px; padding: 4px 10px;
+    font-family: var(--font-mono); border: 1px solid;
+  }
+  .kw-present { color: var(--green); border-color: rgba(15,155,104,0.25); background: rgba(15,155,104,0.07); }
+  .kw-missing { color: var(--red); border-color: rgba(214,62,62,0.25); background: rgba(214,62,62,0.07); }
+
+  /* Loading */
+  .loader { display: none; align-items: center; gap: 14px; padding: 32px 0; }
+  .loader.visible { display: flex; }
+  .spinner {
+    width: 22px; height: 22px; border-radius: 50%;
+    border: 2px solid var(--border2);
+    border-top-color: var(--accent);
+    animation: spin 0.8s linear infinite;
+    flex-shrink: 0;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .loader-text { font-size: 13px; color: var(--muted); font-family: var(--font-mono); }
+
+  .error-box {
+    background: rgba(214,62,62,0.06);
+    border: 1px solid rgba(214,62,62,0.25);
+    border-radius: 10px; padding: 16px 20px;
+    font-size: 13px; color: var(--red);
+    margin-bottom: 24px; display: none;
+  }
+  .error-box.visible { display: block; }
+
+  /* Footer */
+  footer {
+    border-top: 1px solid var(--border);
+    padding: 20px 0;
+    font-size: 12px; color: var(--muted2);
+  }
+  .footer-inner {
+    display: flex; align-items: center; justify-content: space-between;
+    flex-wrap: wrap; gap: 12px;
+  }
+  .visitor-counter {
+    display: flex; align-items: center; gap: 6px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 5px 14px;
+  }
+  .counter-icon { font-size: 13px; }
+  .counter-label { font-size: 11px; color: var(--muted); }
+  .counter-num {
+    font-family: var(--font-mono);
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--accent);
+    min-width: 18px;
+    text-align: center;
+  }
+
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 3px; }
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <header>
+    <div class="header-inner">
+      <div class="logo">
+        <div class="logo-mark">RM</div>
+        <div class="logo-text">
+          <h1>Resume Match Analyser</h1>
+          <p>AI-powered gap analysis & improvement recommendations</p>
+        </div>
+      </div>
+      <div class="config-row">
+        <div class="config-group">
+          <label for="providerSelect">Provider</label>
+          <select id="providerSelect" class="model-select" onchange="onProviderChange()">
+            <option value="groq">Groq (Free)</option>
+            <option value="gemini">Gemini (Free)</option>
+            <option value="anthropic">Anthropic (Paid)</option>
+          </select>
+        </div>
+        <div class="config-group">
+          <label for="modelSelect">Model</label>
+          <select id="modelSelect" class="model-select">
+            <option value="llama-3.3-70b-versatile">Llama 3.3 70B</option>
+            <option value="meta-llama/llama-4-scout-17b-16e-instruct">Llama 4 Scout 17B</option>
+          </select>
+        </div>
+        <div class="config-group">
+          <label for="apiKey" id="apiKeyLabel">Groq API Key</label>
+          <input type="password" id="apiKey" class="api-input" placeholder="gsk_..." autocomplete="off">
+        </div>
+        <a href="https://console.groq.com/keys" target="_blank" id="getKeyLink" class="get-key-link">Get free key →</a>
+      </div>
+    </div>
+  </header>
+
+  <div class="panels">
+    <div class="panel">
+      <div class="panel-header">
+        <span class="panel-title">Your Resume</span>
+        <span class="panel-badge">paste text</span>
+      </div>
+      <textarea id="resumeText" placeholder="Paste your full resume text here — experience, skills, education, certifications…"></textarea>
+    </div>
+    <div class="panel">
+      <div class="panel-header">
+        <span class="panel-title">Job / Requirement Description</span>
+        <span class="panel-badge">paste text</span>
+      </div>
+      <textarea id="jdText" placeholder="Paste the job description or requirement specification here…"></textarea>
+    </div>
+  </div>
+
+  <div class="actions">
+    <button class="btn-analyse" id="analyseBtn" onclick="runAnalysis()">Analyse Match</button>
+    <button class="btn-clear" onclick="clearAll()">Clear</button>
+    <button class="btn-download" id="downloadBtn" onclick="downloadPdf()" style="display:none;">Download as PDF</button>
+    <span class="status-msg" id="statusMsg"></span>
+  </div>
+
+  <div class="error-box" id="errorBox"></div>
+  <div class="loader" id="loader">
+    <div class="spinner"></div>
+    <span class="loader-text" id="loaderText">Analysing your profile against the requirement…</span>
+  </div>
+
+  <div id="results"></div>
+
+  <footer>
+    <div class="footer-inner">
+      <p>Runs locally in your browser · Your API key is never stored · Powered by Groq (free) / Gemini (free) / Claude API</p>
+      <div class="visitor-counter">
+        <span class="counter-icon">👁</span>
+        <span class="counter-label">Visits:</span>
+        <span class="counter-num" id="visitCount">0</span>
+      </div>
+    </div>
+  </footer>
+</div>
+
+<script>
+// ── Visitor counter (persisted in localStorage) ──
+(function() {
+  try {
+    var count = parseInt(localStorage.getItem('rm_visit_count') || '0', 10);
+    count++;
+    localStorage.setItem('rm_visit_count', String(count));
+    document.getElementById('visitCount').textContent = count;
+  } catch(e) {
+    document.getElementById('visitCount').textContent = '1';
+  }
+})();
+
+// ── Provider/Model switcher ──
+var MODELS = {
+  groq: [
+    { value: 'llama-3.3-70b-versatile', label: 'Llama 3.3 70B' },
+    { value: 'meta-llama/llama-4-scout-17b-16e-instruct', label: 'Llama 4 Scout 17B' }
+  ],
+  gemini: [
+    { value: 'gemini-2.5-flash', label: 'Gemini 2.5 Flash' },
+    { value: 'gemini-2.5-pro', label: 'Gemini 2.5 Pro' }
+  ],
+  anthropic: [
+    { value: 'claude-sonnet-4-20250514', label: 'Claude Sonnet 4' },
+    { value: 'claude-opus-4-6', label: 'Claude Opus 4.6' },
+    { value: 'claude-sonnet-4-6', label: 'Claude Sonnet 4.6' },
+    { value: 'claude-haiku-4-5-20251001', label: 'Claude Haiku 4.5' }
+  ]
+};
+
+var PROVIDER_META = {
+  groq: { placeholder: 'gsk_...', label: 'Groq API Key', keyUrl: 'https://console.groq.com/keys', linkText: 'Get free key →' },
+  gemini: { placeholder: 'AIza...', label: 'Gemini API Key', keyUrl: 'https://aistudio.google.com/apikey', linkText: 'Get free key →' },
+  anthropic: { placeholder: 'sk-ant-...', label: 'Anthropic API Key', keyUrl: 'https://console.anthropic.com/', linkText: 'Get key →' }
+};
+
+function onProviderChange() {
+  var provider = document.getElementById('providerSelect').value;
+  var modelSel = document.getElementById('modelSelect');
+  var apiInput = document.getElementById('apiKey');
+  var apiLabel = document.getElementById('apiKeyLabel');
+  var keyLink = document.getElementById('getKeyLink');
+  var meta = PROVIDER_META[provider];
+
+  modelSel.innerHTML = '';
+  MODELS[provider].forEach(function(m) {
+    var opt = document.createElement('option');
+    opt.value = m.value;
+    opt.textContent = m.label;
+    modelSel.appendChild(opt);
+  });
+
+  apiInput.placeholder = meta.placeholder;
+  apiLabel.textContent = meta.label;
+  keyLink.href = meta.keyUrl;
+  keyLink.textContent = meta.linkText;
+  apiInput.value = '';
+}
+
+const LOADER_MSGS = [
+  "Parsing your experience against the requirement…",
+  "Identifying keyword gaps and matches…",
+  "Scoring your profile fit…",
+  "Drafting improvement recommendations…",
+  "Finalising analysis…"
+];
+
+let loaderInterval;
+
+function startLoader() {
+  let i = 0;
+  document.getElementById('loaderText').textContent = LOADER_MSGS[0];
+  loaderInterval = setInterval(() => {
+    i = (i + 1) % LOADER_MSGS.length;
+    document.getElementById('loaderText').textContent = LOADER_MSGS[i];
+  }, 2800);
+}
+
+function stopLoader() {
+  clearInterval(loaderInterval);
+}
+
+function clearAll() {
+  document.getElementById('resumeText').value = '';
+  document.getElementById('jdText').value = '';
+  document.getElementById('results').innerHTML = '';
+  document.getElementById('results').classList.remove('visible');
+  document.getElementById('errorBox').classList.remove('visible');
+  document.getElementById('statusMsg').textContent = '';
+  document.getElementById('downloadBtn').style.display = 'none';
+  lastAnalysis = null;
+}
+
+function showError(msg) {
+  const box = document.getElementById('errorBox');
+  box.textContent = msg;
+  box.classList.add('visible');
+}
+
+function scoreColor(score) {
+  if (score >= 70) return '#0f9b68';
+  if (score >= 45) return '#c47f00';
+  return '#d63e3e';
+}
+
+function scoreLabel(score) {
+  if (score >= 75) return 'Strong Match';
+  if (score >= 55) return 'Partial Match';
+  if (score >= 35) return 'Weak Match';
+  return 'Low Match';
+}
+
+function priorityClass(p) {
+  const pl = (p||'').toLowerCase();
+  if (pl.includes('high') || pl.includes('critical')) return 'pri-high';
+  if (pl.includes('med')) return 'pri-med';
+  return 'pri-low';
+}
+
+let lastAnalysis = null;
+
+function renderResults(data) {
+  lastAnalysis = data;
+  document.getElementById('downloadBtn').style.display = 'inline-block';
+  const score = data.overall_score || 0;
+  const circumference = 2 * Math.PI * 36;
+  const offset = circumference - (score / 100) * circumference;
+  const col = scoreColor(score);
+
+  const matchItems = (data.matches || []).map(m => `
+    <div class="match-item">
+      <div class="match-dot dot-green"></div>
+      <div class="match-text">
+        <span class="match-label">${m.area || ''}</span>
+        ${m.detail || ''}
+      </div>
+    </div>`).join('');
+
+  const gapItems = (data.gaps || []).map(g => `
+    <div class="match-item">
+      <div class="match-dot ${g.severity === 'critical' ? 'dot-red' : 'dot-amber'}"></div>
+      <div class="match-text">
+        <span class="match-label">${g.area || ''} ${g.severity === 'critical' ? '· Mandatory' : '· Desirable'}</span>
+        ${g.detail || ''}
+      </div>
+    </div>`).join('');
+
+  const improvements = (data.improvements || []).map((imp, i) => `
+    <div class="improvement-row" id="imp-${i}">
+      <button class="improvement-toggle" onclick="toggleImp(${i})">
+        <div class="imp-num">${String(i+1).padStart(2,'0')}</div>
+        <span class="imp-title">${imp.title || ''}</span>
+        <span class="imp-priority ${priorityClass(imp.priority)}">${imp.priority || 'Medium'}</span>
+        <span class="imp-chevron">▼</span>
+      </button>
+      <div class="improvement-detail">${imp.detail || ''}</div>
+    </div>`).join('');
+
+  const presentKws = (data.keywords?.present || []).map(k =>
+    `<span class="kw-tag kw-present">${k}</span>`).join('');
+  const missingKws = (data.keywords?.missing || []).map(k =>
+    `<span class="kw-tag kw-missing">${k}</span>`).join('');
+
+  const fitPills = (data.fit_summary || []).map(f =>
+    `<span class="pill pill-${f.type || 'amber'}">${f.label}</span>`).join('');
+
+  document.getElementById('results').innerHTML = `
+    <div class="score-banner">
+      <div class="score-ring">
+        <svg viewBox="0 0 90 90">
+          <circle class="ring-bg" cx="45" cy="45" r="36"/>
+          <circle class="ring-fill" cx="45" cy="45" r="36"
+            stroke="${col}"
+            stroke-dasharray="${circumference}"
+            stroke-dashoffset="${circumference}"
+            id="ringFill"/>
+        </svg>
+        <div class="score-label">
+          <span class="score-num">${score}</span>
+          <span class="score-pct">/ 100</span>
+        </div>
+      </div>
+      <div class="score-meta">
+        <h2>${scoreLabel(score)}</h2>
+        <p>${data.summary || ''}</p>
+        <div class="fit-pills">${fitPills}</div>
+      </div>
+    </div>
+
+    <div class="cards">
+      <div class="card">
+        <div class="card-head">
+          <div class="card-icon icon-green">✓</div>
+          <h3>Where you match</h3>
+        </div>
+        <div class="card-body">${matchItems || '<p style="color:var(--muted);font-size:13px;">No clear matches identified.</p>'}</div>
+      </div>
+      <div class="card">
+        <div class="card-head">
+          <div class="card-icon icon-red">✗</div>
+          <h3>Gaps identified</h3>
+        </div>
+        <div class="card-body">${gapItems || '<p style="color:var(--muted);font-size:13px;">No significant gaps.</p>'}</div>
+      </div>
+    </div>
+
+    <div class="improvements">
+      <div class="improvements-head">
+        <span style="font-size:20px;">🛠</span>
+        <h3>How to improve your profile</h3>
+      </div>
+      <div class="improvements-body">${improvements}</div>
+    </div>
+
+    <div class="keywords-section">
+      <h3>Keyword analysis</h3>
+      <p>Terms from the job description found (or missing) in your resume.</p>
+      <div class="kw-groups">
+        <div class="kw-group">
+          <h4>✓ Present in resume</h4>
+          <div class="kw-tags">${presentKws || '<span style="color:var(--muted2);font-size:12px;">None detected</span>'}</div>
+        </div>
+        <div class="kw-group">
+          <h4>✗ Missing from resume</h4>
+          <div class="kw-tags">${missingKws || '<span style="color:var(--muted2);font-size:12px;">None detected</span>'}</div>
+        </div>
+      </div>
+    </div>
+  `;
+
+  document.getElementById('results').classList.add('visible');
+
+  // Animate ring
+  setTimeout(() => {
+    document.getElementById('ringFill').style.strokeDashoffset = offset;
+  }, 100);
+}
+
+function toggleImp(i) {
+  const row = document.getElementById('imp-' + i);
+  row.classList.toggle('open');
+}
+
+async function runAnalysis() {
+  const apiKey = document.getElementById('apiKey').value.trim();
+  const resume = document.getElementById('resumeText').value.trim();
+  const jd = document.getElementById('jdText').value.trim();
+  const provider = document.getElementById('providerSelect').value;
+  const model = document.getElementById('modelSelect').value;
+
+  document.getElementById('errorBox').classList.remove('visible');
+
+  if (!apiKey) { showError('Please enter your ' + (provider === 'gemini' ? 'Gemini' : provider === 'groq' ? 'Groq' : 'Anthropic') + ' API key above.'); return; }
+  if (!resume) { showError('Please paste your resume text.'); return; }
+  if (!jd) { showError('Please paste the job / requirement description.'); return; }
+
+  const btn = document.getElementById('analyseBtn');
+  btn.disabled = true;
+  document.getElementById('loader').classList.add('visible');
+  document.getElementById('results').classList.remove('visible');
+  document.getElementById('results').innerHTML = '';
+  document.getElementById('statusMsg').textContent = '';
+  startLoader();
+
+  const systemPrompt = `You are an expert career coach and resume analyst. You will compare a resume against a job description and return a structured JSON analysis.
+
+Return ONLY valid JSON — no markdown, no code fences, no preamble. Use exactly this schema:
+
+{
+  "overall_score": <integer 0-100>,
+  "summary": "<2-3 sentence overall fit assessment>",
+  "fit_summary": [
+    { "label": "<short label>", "type": "green|amber|red" }
+  ],
+  "matches": [
+    { "area": "<requirement area>", "detail": "<how resume addresses it>" }
+  ],
+  "gaps": [
+    { "area": "<gap area>", "severity": "critical|moderate", "detail": "<what is missing and why it matters>" }
+  ],
+  "improvements": [
+    {
+      "title": "<short action title>",
+      "priority": "High|Medium|Low",
+      "detail": "<specific, actionable advice — what to add, rewrite, or reframe and exactly how>"
+    }
+  ],
+  "keywords": {
+    "present": ["<keyword>", ...],
+    "missing": ["<keyword>", ...]
+  }
+}
+
+Rules:
+- overall_score: 0-100 reflecting genuine fit including mandatory requirements
+- fit_summary: 3-5 brief labels (e.g. "PMP Certified", "Platform gap", "Strong PM track record")
+- matches: up to 8 items, most important first
+- gaps: all significant gaps, mandatory ones marked critical
+- improvements: 5-8 specific, actionable items ordered by priority
+- keywords: extract role-specific technical terms, platforms, certifications, and frameworks`;
+
+  const userPrompt = 'RESUME:\n' + resume + '\n\n---\n\nJOB DESCRIPTION:\n' + jd;
+
+  try {
+    var raw = '';
+
+    if (provider === 'groq') {
+      // ── Groq API (OpenAI-compatible, free, CORS-enabled) ──
+      const resp = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer ' + apiKey
+        },
+        body: JSON.stringify({
+          model: model,
+          messages: [
+            { role: 'system', content: systemPrompt },
+            { role: 'user', content: userPrompt }
+          ],
+          temperature: 0.3,
+          max_tokens: 4096
+        })
+      });
+
+      if (!resp.ok) {
+        const err = await resp.json().catch(function() { return {}; });
+        throw new Error(err.error?.message || 'Groq API error ' + resp.status);
+      }
+
+      const payload = await resp.json();
+      raw = payload.choices?.[0]?.message?.content || '';
+
+    } else if (provider === 'gemini') {
+      // ── Google Gemini API ──
+      const geminiUrl = 'https://generativelanguage.googleapis.com/v1beta/models/' + model + ':generateContent?key=' + apiKey;
+      const resp = await fetch(geminiUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents: [{
+            parts: [{ text: systemPrompt + '\n\n' + userPrompt }]
+          }],
+          generationConfig: {
+            temperature: 0.3,
+            maxOutputTokens: 4096
+          }
+        })
+      });
+
+      if (!resp.ok) {
+        const err = await resp.json().catch(function() { return {}; });
+        throw new Error(err.error?.message || 'Gemini API error ' + resp.status);
+      }
+
+      const payload = await resp.json();
+      raw = payload.candidates?.[0]?.content?.parts?.[0]?.text || '';
+
+    } else {
+      // ── Anthropic Claude API ──
+      const resp = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-api-key': apiKey,
+          'anthropic-version': '2023-06-01',
+          'anthropic-dangerous-direct-browser-access': 'true'
+        },
+        body: JSON.stringify({
+          model: model,
+          max_tokens: 4000,
+          system: systemPrompt,
+          messages: [{ role: 'user', content: userPrompt }]
+        })
+      });
+
+      if (!resp.ok) {
+        const err = await resp.json().catch(function() { return {}; });
+        throw new Error(err.error?.message || 'API error ' + resp.status);
+      }
+
+      const payload = await resp.json();
+      raw = payload.content?.[0]?.text || '';
+    }
+
+    const clean = raw.replace(/```json|```/g, '').trim();
+    const data = JSON.parse(clean);
+    renderResults(data);
+
+  } catch (e) {
+    showError('Error: ' + e.message);
+  } finally {
+    stopLoader();
+    document.getElementById('loader').classList.remove('visible');
+    btn.disabled = false;
+  }
+}
+
+// Allow Ctrl+Enter to trigger
+document.addEventListener('keydown', e => {
+  if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') runAnalysis();
+});
+
+// ── PDF generation via print-to-PDF (no external libraries needed) ──
+function downloadPdf() {
+  if (!lastAnalysis) return;
+  var d = lastAnalysis;
+
+  var scoreLbl = d.overall_score >= 75 ? 'Strong Match' : d.overall_score >= 55 ? 'Partial Match' : d.overall_score >= 35 ? 'Weak Match' : 'Low Match';
+  var scoreCol = d.overall_score >= 70 ? '#0f9b68' : d.overall_score >= 45 ? '#c47f00' : '#d63e3e';
+
+  // Build fit pills
+  var fitHtml = '';
+  if (d.fit_summary && d.fit_summary.length) {
+    fitHtml = '<div style="display:flex;gap:8px;flex-wrap:wrap;margin:12px 0 20px;">' +
+      d.fit_summary.map(function(f) {
+        var c = f.type === 'green' ? '#0f9b68' : f.type === 'red' ? '#d63e3e' : '#c47f00';
+        var bg = f.type === 'green' ? '#e6f3ec' : f.type === 'red' ? '#fce8e8' : '#fef4e0';
+        return '<span style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;padding:3px 10px;border-radius:12px;color:' + c + ';background:' + bg + ';border:1px solid ' + c + '30;">' + f.label + '</span>';
+      }).join('') + '</div>';
+  }
+
+  // Build matches table
+  var matchesHtml = '';
+  if (d.matches && d.matches.length) {
+    matchesHtml = '<table>' +
+      '<tr><th style="background:#e6f3ec;color:#085041;">Requirement Area</th><th style="background:#e6f3ec;color:#085041;">How You Match</th></tr>' +
+      d.matches.map(function(m) {
+        return '<tr><td style="font-weight:600;">' + (m.area||'') + '</td><td>' + (m.detail||'') + '</td></tr>';
+      }).join('') + '</table>';
+  }
+
+  // Build gaps table
+  var gapsHtml = '';
+  if (d.gaps && d.gaps.length) {
+    gapsHtml = '<table>' +
+      '<tr><th style="background:#fce8e8;color:#791f1f;">Gap Area</th><th style="background:#fce8e8;color:#791f1f;">Severity</th><th style="background:#fce8e8;color:#791f1f;">Detail</th></tr>' +
+      d.gaps.map(function(g) {
+        var sevText = (g.severity||'moderate');
+        sevText = sevText.charAt(0).toUpperCase() + sevText.slice(1);
+        var sevCol = g.severity === 'critical' ? '#d63e3e' : '#c47f00';
+        return '<tr><td style="font-weight:600;">' + (g.area||'') + '</td><td style="font-weight:700;color:' + sevCol + ';">' + sevText + '</td><td>' + (g.detail||'') + '</td></tr>';
+      }).join('') + '</table>';
+  }
+
+  // Build improvements
+  var impHtml = '';
+  if (d.improvements && d.improvements.length) {
+    impHtml = d.improvements.map(function(imp, i) {
+      var priCol = (imp.priority||'').toLowerCase().indexOf('high') >= 0 ? '#d63e3e'
+        : (imp.priority||'').toLowerCase().indexOf('med') >= 0 ? '#c47f00' : '#0f9b68';
+      return '<div class="imp-item">' +
+        '<div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;">' +
+          '<span style="display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;border-radius:5px;background:#f0eeea;font-size:11px;font-weight:600;color:#6b6860;">' + (i+1) + '</span>' +
+          '<span style="font-weight:600;font-size:13px;">' + (imp.title||'') + '</span>' +
+          '<span style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;padding:2px 8px;border-radius:10px;color:' + priCol + ';border:1px solid ' + priCol + '40;margin-left:auto;">' + (imp.priority||'Medium') + '</span>' +
+        '</div>' +
+        '<div style="margin-left:30px;font-size:12px;color:#4a4a4a;line-height:1.6;">' + (imp.detail||'') + '</div>' +
+      '</div>';
+    }).join('');
+  }
+
+  // Build keywords
+  var kwHtml = '';
+  if (d.keywords) {
+    var presentTags = (d.keywords.present||[]).map(function(k) {
+      return '<span style="display:inline-block;font-size:11px;padding:2px 8px;border-radius:5px;color:#0f9b68;background:#e6f3ec;border:1px solid #0f9b6840;margin:2px 4px 2px 0;">' + k + '</span>';
+    }).join('');
+    var missingTags = (d.keywords.missing||[]).map(function(k) {
+      return '<span style="display:inline-block;font-size:11px;padding:2px 8px;border-radius:5px;color:#d63e3e;background:#fce8e8;border:1px solid #d63e3e40;margin:2px 4px 2px 0;">' + k + '</span>';
+    }).join('');
+    kwHtml = '<div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;">' +
+      '<div><h4 style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:#6b6860;margin-bottom:8px;">Present in resume</h4><div>' + (presentTags || '<span style="color:#a09d96;font-size:11px;">None detected</span>') + '</div></div>' +
+      '<div><h4 style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:#6b6860;margin-bottom:8px;">Missing from resume</h4><div>' + (missingTags || '<span style="color:#a09d96;font-size:11px;">None detected</span>') + '</div></div>' +
+    '</div>';
+  }
+
+  // SVG ring for score
+  var circ = 2 * Math.PI * 40;
+  var offset = circ - (d.overall_score / 100) * circ;
+  var ringsvg = '<svg width="100" height="100" viewBox="0 0 100 100" style="transform:rotate(-90deg);">' +
+    '<circle cx="50" cy="50" r="40" fill="none" stroke="#e2dfd8" stroke-width="7"/>' +
+    '<circle cx="50" cy="50" r="40" fill="none" stroke="' + scoreCol + '" stroke-width="7" stroke-linecap="round" stroke-dasharray="' + circ + '" stroke-dashoffset="' + offset + '"/>' +
+    '</svg>';
+
+  var html = '<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Resume Match Analysis</title><style>' +
+    '@page { size: A4; margin: 18mm 16mm; }' +
+    'body { font-family: Arial, Helvetica, sans-serif; font-size: 12px; color: #1a1a1a; line-height: 1.55; margin: 0; padding: 0; -webkit-print-color-adjust: exact; print-color-adjust: exact; }' +
+    'h1 { font-size: 22px; font-weight: 700; margin: 0 0 4px; color: #1a1a1a; }' +
+    'h2 { font-size: 15px; font-weight: 700; margin: 22px 0 10px; padding-bottom: 5px; border-bottom: 2px solid #e2dfd8; }' +
+    '.score-bar { display: flex; align-items: center; gap: 24px; margin: 16px 0 10px; }' +
+    '.ring-wrap { position: relative; width: 100px; height: 100px; flex-shrink: 0; }' +
+    '.ring-label { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; }' +
+    '.ring-num { font-size: 28px; font-weight: 700; line-height: 1; }' +
+    '.ring-sub { font-size: 10px; color: #6b6860; }' +
+    '.summary { font-size: 13px; color: #4a4a4a; font-style: italic; margin-bottom: 6px; }' +
+    'table { width: 100%; border-collapse: collapse; margin: 6px 0 16px; font-size: 11.5px; }' +
+    'th, td { border: 1px solid #ddd; padding: 7px 10px; text-align: left; vertical-align: top; }' +
+    'th { font-size: 11px; font-weight: 700; }' +
+    '.imp-item { margin-bottom: 12px; page-break-inside: avoid; }' +
+    '.footer { margin-top: 24px; padding-top: 10px; border-top: 1px solid #ddd; font-size: 10px; color: #a09d96; }' +
+  '</style></head><body>' +
+
+  '<h1>Resume Match Analysis</h1>' +
+
+  '<div class="score-bar">' +
+    '<div class="ring-wrap">' + ringsvg +
+      '<div class="ring-label"><span class="ring-num" style="color:' + scoreCol + ';">' + d.overall_score + '</span><span class="ring-sub">/ 100</span></div>' +
+    '</div>' +
+    '<div>' +
+      '<div style="font-size:18px;font-weight:700;margin-bottom:4px;">' + scoreLbl + '</div>' +
+      '<div class="summary">' + (d.summary||'') + '</div>' +
+      fitHtml +
+    '</div>' +
+  '</div>' +
+
+  '<h2 style="color:#0f9b68;">Where Your Profile Matches</h2>' +
+  matchesHtml +
+
+  '<h2 style="color:#d63e3e;">Gaps Identified</h2>' +
+  gapsHtml +
+
+  '<h2 style="color:#3b5bdb;">Improvement Recommendations</h2>' +
+  impHtml +
+
+  '<h2>Keyword Analysis</h2>' +
+  kwHtml +
+
+  '<div class="footer">Generated by Resume Match Analyser on ' + new Date().toLocaleDateString('en-CA') + '</div>' +
+
+  '</body></html>';
+
+  // Open in a new window and trigger print (Save as PDF)
+  var win = window.open('', '_blank');
+  if (!win) {
+    alert('Pop-up blocked! Please allow pop-ups for this page, then try again.');
+    return;
+  }
+  win.document.write(html);
+  win.document.close();
+  // Give the browser a moment to render before triggering print
+  setTimeout(function() {
+    win.print();
+  }, 400);
+}
+</script>
+</body>
+</html>
