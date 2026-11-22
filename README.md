@@ -38,9 +38,9 @@ The app ships with three providers. Switch between them using the dropdown — t
 
 | Provider | Cost | Rate limit | Models | Key signup |
 |---|---|---|---|---|
-| **Groq** (default) | Free | 14,400 req/day | Llama 3.3 70B, Llama 4 Scout 17B | [console.groq.com/keys](https://console.groq.com/keys) |
-| **Google Gemini** | Free | 1,500 req/day | Gemini 2.5 Flash, Gemini 2.5 Pro | [aistudio.google.com/apikey](https://aistudio.google.com/apikey) |
-| **Anthropic Claude** | Paid | Per usage | Sonnet 4, Opus 4.6, Sonnet 4.6, Haiku 4.5 | [console.anthropic.com](https://console.anthropic.com) |
+| **Groq** (default) | Free | 14,400 req/day | GPT-OSS 120B, GPT-OSS 20B | [console.groq.com/keys](https://console.groq.com/keys) |
+| **Google Gemini** | Free | 1,500 req/day | Gemini 3.8 Flash, Gemini 3.5 Flash-Lite | [aistudio.google.com/apikey](https://aistudio.google.com/apikey) |
+| **Anthropic Claude** | Paid | Per usage | Opus 5.5, Sonnet 5.5, Haiku 5.5 | [console.anthropic.com](https://console.anthropic.com) |
 
 > **Note on Gemini:** Google's API may block browser requests when opened via `file://`. If you hit a "Load failed" error with Gemini, serve the file through a local HTTP server instead:
 > ```bash
