@@ -404,8 +404,8 @@
         <div class="config-group">
           <label for="modelSelect">Model</label>
           <select id="modelSelect" class="model-select">
-            <option value="llama-3.3-70b-versatile">Llama 3.3 70B</option>
-            <option value="meta-llama/llama-4-scout-17b-16e-instruct">Llama 4 Scout 17B</option>
+            <option value="openai/gpt-oss-120b">GPT-OSS 120B</option>
+            <option value="openai/gpt-oss-20b">GPT-OSS 20B</option>
           </select>
         </div>
         <div class="config-group">
@@ -474,21 +474,42 @@
   }
 })();
 
+// ── Claude request helpers ──
+// Claude 5.5 models always think (adaptive), so leave room for thinking tokens
+// and read the text blocks rather than content[0] (which is a thinking block).
+function buildClaudeBody(model, systemPrompt, userPrompt) {
+  var body = {
+    model: model,
+    max_tokens: 16000,
+    system: systemPrompt,
+    messages: [{ role: 'user', content: userPrompt }]
+  };
+  // Server-side fallback if a safety classifier declines (Opus/Sonnet only)
+  if (model.indexOf('claude-haiku') !== 0) body.fallbacks = 'default';
+  return body;
+}
+
+function extractClaudeText(payload) {
+  if (payload.stop_reason === 'refusal') {
+    throw new Error('Claude declined this request' + (payload.stop_details?.explanation ? ': ' + payload.stop_details.explanation : '.'));
+  }
+  return (payload.content || []).filter(function(b) { return b.type === 'text'; }).map(function(b) { return b.text; }).join('');
+}
+
 // ── Provider/Model switcher ──
 var MODELS = {
   groq: [
-    { value: 'llama-3.3-70b-versatile', label: 'Llama 3.3 70B' },
-    { value: 'meta-llama/llama-4-scout-17b-16e-instruct', label: 'Llama 4 Scout 17B' }
+    { value: 'openai/gpt-oss-120b', label: 'GPT-OSS 120B' },
+    { value: 'openai/gpt-oss-20b', label: 'GPT-OSS 20B' }
   ],
   gemini: [
-    { value: 'gemini-2.5-flash', label: 'Gemini 2.5 Flash' },
-    { value: 'gemini-2.5-pro', label: 'Gemini 2.5 Pro' }
+    { value: 'gemini-3.8-flash', label: 'Gemini 3.8 Flash' },
+    { value: 'gemini-3.5-flash-lite', label: 'Gemini 3.5 Flash-Lite' }
   ],
   anthropic: [
-    { value: 'claude-sonnet-4-20250514', label: 'Claude Sonnet 4' },
-    { value: 'claude-opus-4-6', label: 'Claude Opus 4.6' },
-    { value: 'claude-sonnet-4-6', label: 'Claude Sonnet 4.6' },
-    { value: 'claude-haiku-4-5-20251001', label: 'Claude Haiku 4.5' }
+    { value: 'claude-opus-5-5', label: 'Claude Opus 5.5' },
+    { value: 'claude-sonnet-5-5', label: 'Claude Sonnet 5.5' },
+    { value: 'claude-haiku-5-5', label: 'Claude Haiku 5.5' }
   ]
 };
 
@@ -783,7 +804,8 @@ Rules:
             { role: 'user', content: userPrompt }
           ],
           temperature: 0.3,
-          max_tokens: 4096
+          reasoning_effort: 'low',
+          max_tokens: 8192
         })
       });
 
@@ -806,8 +828,7 @@ Rules:
             parts: [{ text: systemPrompt + '\n\n' + userPrompt }]
           }],
           generationConfig: {
-            temperature: 0.3,
-            maxOutputTokens: 4096
+            maxOutputTokens: 16384
           }
         })
       });
@@ -818,7 +839,7 @@ Rules:
       }
 
       const payload = await resp.json();
-      raw = payload.candidates?.[0]?.content?.parts?.[0]?.text || '';
+      raw = (payload.candidates?.[0]?.content?.parts || []).filter(function(p) { return !p.thought; }).map(function(p) { return p.text || ''; }).join('');
 
     } else {
       // ── Anthropic Claude API ──
@@ -828,14 +849,10 @@ Rules:
           'Content-Type': 'application/json',
           'x-api-key': apiKey,
           'anthropic-version': '2023-06-01',
+          'anthropic-beta': 'server-side-fallback-2026-07-01',
           'anthropic-dangerous-direct-browser-access': 'true'
         },
-        body: JSON.stringify({
-          model: model,
-          max_tokens: 4000,
-          system: systemPrompt,
-          messages: [{ role: 'user', content: userPrompt }]
-        })
+        body: JSON.stringify(buildClaudeBody(model, systemPrompt, userPrompt))
       });
 
       if (!resp.ok) {
@@ -844,7 +861,7 @@ Rules:
       }
 
       const payload = await resp.json();
-      raw = payload.content?.[0]?.text || '';
+      raw = extractClaudeText(payload);
     }
 
     const clean = raw.replace(/```json|```/g, '').trim();
